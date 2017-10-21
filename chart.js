@@ -82,7 +82,7 @@ function test(){
 	var chart = Chart.newInstance(chartOption);
 	var pointList = [new Point(100,200),new Point(100,150)]
 	chart.drawLine(10,200, pointList, 'rgb(255,0,0)', 100);
-	chart.drawRect(100,10,100,50,'rgb(255,0,0)', 1);
+	chart.drawRect(100,10,100,50,'rgb(255,0,0)', 4);
 	chart.drawFillRect(210,10,100,50,'rgb(0,255,0)', 10);
 }
 
