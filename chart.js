@@ -31,7 +31,7 @@ var CandleChartOption = {
 * amount is the trading amount of the day
 * 
 */
-CandleData = function(high, low, open, close, volume, amount, exchange, day){
+CandleData = function( day, open, high, close, low, volume, amount, exchange){
     this.high = high;
     this.low = low;
     this.open = open;
@@ -128,6 +128,11 @@ var Chart = {
             ctx.restore();
         };
         
+        chart.clearCanvas = function(){
+            var ctx = chart.getCanvasCtx();
+            ctx.clearRect(0, 0, chart.canvas.width, chart.canvas.height);
+        }
+        
         chart.drawX = function(color, size){
             var p = new Point(chart.offsetX + chart.width, chart.offsetY);
             chart.drawLine(chart.offsetX, chart.offsetY, [p], color, size)
@@ -138,32 +143,29 @@ var Chart = {
             chart.drawLine(chart.offsetX, chart.offsetY, [p], color, size)
         };
         
-        chart.drawYGrid = function(color, size, num, textList){
+        chart.drawYGrid = function(num, textList, color, size){
             var step = Math.round( chart.height / num );
-            var lineDash = [5,10];
-            for(var i = 0; i < num; i++){
+            var lineDash = [2,2];
+            for(var i = 0; i <= num; i++){
                 var y = chart.offsetY - step * i;
                 var p = new Point(chart.offsetX + chart.width, y);                
                 chart.drawLine(chart.offsetX, y, [p], color, size, lineDash); 
                 if(textList){
-                    chart.drawText(textList[i], chart.offsetX, y, "rgb(255,0,0)", "12px serif");
+                    chart.drawText(textList[i], chart.offsetX, y, "rgb(255,0,0)", "20px serif");
                 }
             }
         };
         
         chart.drawXGrid = function(color, size, num, textList){
             var step = Math.round( chart.width / num );
-            var lineDash = [5,10];
-            for(var i = 1; i <= num; i++){
+            var lineDash = [2,2];
+            for(var i = 0; i <= num; i++){
                 var x = chart.offsetX + step * i;
                 var p = new Point(x, chart.offsetY - chart.height);
                 chart.drawLine(x, chart.offsetY, [p], color, size, lineDash);
             }
         };
         
-        chart.drawCandle = function(index, candleData){
-            
-        }
         
         return chart;
     }
@@ -173,27 +175,17 @@ var Chart = {
 var CandelChart = {
     newInstance: function(option){
         var cc = Chart.newInstance(option);
-        var data = option.candleDataList;
+        var data = option.candleDataList; //蜡烛图数据，可以多于当前画的个数
         data.sort(function(a,b){
             var t1 = Date.parse(new Date(a.day));
             var t2 = Date.parse(new Date(b.day));
             return t1 - t2;
         });
-        cc.maxPrice = 0;
-        cc.minPrice = 10000000;
-        data.forEach(function(v,i,arr){
-            if(v.high > cc.maxPrice){
-                cc.maxPrice = v.high;
-            }
-            if(v.low < cc.minPrice){
-                cc.minPrice = v.low;
-            }
-        });       
-        
-        cc.marginTop = 0.05;/* margin top and margin botton precent*/
-        cc.marginBottom = 0.05;
-        cc.marginLeft = 0.02;
-        cc.marginRight = 0.02;
+                
+        cc.marginTop = 0.02;/* margin top and margin botton precent*/
+        cc.marginBottom = 0.02;
+        cc.marginLeft = 0.01;
+        cc.marginRight = 0.01;
         cc.dataHeight = cc.height * (1 - cc.marginTop - cc.marginBottom);  //显示数据图的高度
         cc.dataWidth = cc.width * (1 - cc.marginLeft - cc.marginRight);    //显示数据图的宽
         
@@ -206,13 +198,16 @@ var CandelChart = {
             var ret = Math.round( cc.offsetY - cc.height * cc.marginBottom - (price - cc.minPrice) * cc.dataHeight / pLen  );
             return ret;
         };
-        cc.candleWidth = cc.dataWidth / (data.length < 20? 20:data.length);
-        cc.drawCandle = function(i){
-            
-            var margin = 2;//边距
-            var x1 = cc.offsetX + i * cc.candleWidth + margin;
-            var x2 = cc.offsetX + (i + 1) * cc.candleWidth - margin;
-            var x = (x1 + x2) /2;
+        cc.maxCandleCount = 80;  //最大画的蜡烛图个数
+        cc.minCandleCount = 20;  //最小画的蜡烛图个数
+        cc.curCandleCount = 50;  //当前画的蜡烛图个数
+        cc.candleWidth = cc.dataWidth / cc.curCandleCount;
+        cc.drawCandle = function(i, start){
+            start = start || 0;
+            var margin = 1 * window.devicePixelRatio;//边距
+            var x1 = Math.round(cc.offsetX + cc.width * cc.marginLeft + (i - start) * cc.candleWidth + margin);
+            var x2 = Math.round(cc.offsetX + cc.width * cc.marginLeft + (i - start + 1) * cc.candleWidth - margin);
+            var x = Math.round( (x1 + x2) / 2);
             var candlePrice = data[i];
             var y1 = y2 = 0;
             var color = "";
@@ -228,8 +223,16 @@ var CandelChart = {
             }else{
                 y1 = yo;
                 y2 = yc;
-                color = "rgb(0,0,0)";
-                cc.drawFillRect(x1, y1, x2 - x1, y2 - y1, color);
+                color = "rgb(0,102,0)";
+                var height = y2 - y1;
+                if(height == 0){
+                    height = 1;
+                }
+                var width = x2 - x1;
+                if(width == 0 ){
+                    width = 1;
+                }
+                cc.drawFillRect(x1, y1, width, height, color);
             }
             if(yh < y1){
                 cc.drawLine(x, yh, [new Point(x, y1)], color);
@@ -239,39 +242,150 @@ var CandelChart = {
             }
         };
         
-        cc.drawAllCandle = function(){
-            for(var i = 0; i < data.length; i++ ){
-                cc.drawCandle(i);
+        cc.yGridNum = 5;
+        cc.getMinMaxPrice = function(start, num){
+            if(start != 0 && start + num >= data.length){
+                cc.minPrice = 0;
+                cc.maxPrice = 1;
+                return;
             }
+            cc.minPrice = 100000000;
+            cc.maxPrice = -1;
+            for(var i = start; i < data.length & i < start + num; i++ ){
+                if(data[i].high > cc.maxPrice){
+                    cc.maxPrice = data[i].high;
+                }
+                if(data[i].low < cc.minPrice){
+                    cc.minPrice = data[i].low;
+                }
+            }
+        }
+        //num of draw candles from start index in cc.candleDataList
+        cc.drawMutilCandles = function(start){
+            start = start || 0;
+            if(start != 0 && start + cc.curCandleCount >= data.length){
+                return;
+            }            
+            cc.getMinMaxPrice(start, cc.curCandleCount);
+            
+            cc.clearCanvas();
+            cc.drawX('rgb(0,0,0)', 1);
+            cc.drawY('rgb(0,0,0)', 1);
+            for(var i = start; i < data.length && i < start + cc.curCandleCount; i++ ){
+                cc.drawCandle(i, start);
+            }
+            
+            var textArr = [];
+            var priceLen = cc.maxPrice - cc.minPrice;
+            var min = cc.minPrice - priceLen * cc.marginBottom;
+            var max = cc.maxPrice + priceLen * cc.marginTop;
+            var step = (max - min) / cc.yGridNum ;
+            for(var i = 0;i <= cc.yGridNum; i++){
+                var n = Math.round((min + step * i)*100) / 100;
+                textArr.push( n.toString());
+            }
+            cc.drawYGrid(cc.yGridNum, textArr, 'rgb(204,204,204)');            
         }
         
         return cc;
     }
 };
-function test(){
-    //high, low, open, close, volume, amount, exchange, day
+
+var s = 0;
+function init(){
+    //day, open, high, close, low, volume, amount, exchange
     var data = [
-    new CandleData(10,2,3,6,10,10,0.1,"2017-10-10"),
-    new CandleData(8,1,6,8,10,10,0.1,"2017-10-11"),
-    new CandleData(8,1,6,3,10,10,0.1,"2017-10-09"),
-    new CandleData(8,8,8,8,10,10,0.1,"2017-10-12"),
-    new CandleData(8,6,6,8,10,10,0.1,"2017-10-12"),
-    new CandleData(8,6,6,7,10,10,0.1,"2017-10-12"),
-    new CandleData(8,6,8,7,10,10,0.1,"2017-10-12"),
-    new CandleData(8,6,8,7,10,10,0.1,"2017-10-12"),
+    new CandleData("2009/12/31",10.24,10.38,10.3,10.12,53609036,550198080),
+    new CandleData("2009/12/30",10.02,10.25,10.24,9.95,84355144,855148672),
+    new CandleData("2009/12/29",10.11,10.13,10.02,9.92,52599252,525828064),
+    new CandleData("2009/12/28",9.94,10.16,10.11,9.94,43861760,441469440),
+    new CandleData("2009/12/25",10.06,10.07,9.92,9.9,36566288,364125600),
+    new CandleData("2009/12/24",9.9,10.08,10.06,9.83,37334912,372418144),
+    new CandleData("2009/12/23",9.79,9.91,9.87,9.73,36194944,355757344),
+    new CandleData("2009/12/22",10.26,10.27,9.79,9.7,52204936,519132512),
+    new CandleData("2009/12/21",10.2,10.28,10.24,10.1,24899704,253852288),
+    new CandleData("2009/12/18",10.31,10.36,10.2,10.12,43549492,445230656),
+    new CandleData("2009/12/17",10.71,10.72,10.33,10.28,52193344,546126272),
+    new CandleData("2009/12/16",10.71,10.86,10.69,10.66,39819288,429003520),
+    new CandleData("2009/12/15",10.95,11.07,10.79,10.74,68762280,747536960),
+    new CandleData("2009/12/14",10.79,10.98,10.93,10.59,105077824,1134069376),
+    new CandleData("2009/12/11",10.7,10.75,10.6,10.57,41880012,446246624),
+    new CandleData("2009/12/10",10.74,10.76,10.65,10.55,47712504,506793664),
+    new CandleData("2009/12/09",10.76,10.9,10.66,10.61,74750272,801047808),
+    new CandleData("2009/12/08",11.28,11.31,10.94,10.84,87024768,956285760),
+    new CandleData("2009/12/07",11.18,11.37,11.26,11.1,98618784,1109132032),
+    new CandleData("2009/12/04",10.9,11.1,11.09,10.66,95186712,1039742144),
+    new CandleData("2009/12/03",11,11.03,10.96,10.75,75854656,825616896),
+    new CandleData("2009/12/02",10.98,11.29,11.09,10.93,113216728,1260802304),
+    new CandleData("2009/12/01",10.8,10.99,10.91,10.7,79944840,869549248),
+    new CandleData("2009/11/30",10.49,11,10.9,10.4,93734688,1008985792),
+    new CandleData("2009/11/26",10.85,11.09,10.5,10.47,123250992,1334111488),
+    new CandleData("2009/11/25",10.45,10.69,10.67,10.4,64131948,676836672),
+    new CandleData("2009/11/24",10.9,11.04,10.48,10.44,115716880,1249415936),
+    new CandleData("2009/11/23",10.88,10.92,10.87,10.74,76176888,824179264),
+    new CandleData("2009/11/20",10.98,10.98,10.88,10.83,86992000,948180096),
+    new CandleData("2009/11/19",10.77,11.06,11.06,10.72,109795632,1194779520),
+    new CandleData("2009/11/18",10.95,10.95,10.81,10.7,89436760,965905920),
+    new CandleData("2009/11/17",11,11.15,10.95,10.89,72545208,796845056),
+    new CandleData("2009/11/16",10.94,11.04,10.98,10.88,107397024,1178078976),
+    new CandleData("2009/11/13",11.14,11.14,10.84,10.68,119641592,1297519744),
+    new CandleData("2009/11/12",11.4,11.8,11.14,10.95,202809280,2290217216),
+    new CandleData("2009/11/06",11.25,11.72,11.35,11.2,134578656,1535981184),
+    new CandleData("2009/11/05",10.52,11.15,10.86,10.52,135736384,1481654272),
+    new CandleData("2009/11/04",10.28,10.63,10.44,10.28,118403416,1237650816),
+    new CandleData("2009/11/03",9.95,10.08,10.01,9.88,48002316,479718528),
+    new CandleData("2009/11/02",9.65,9.97,9.93,9.55,35578972,347081824),
+    new CandleData("2009/10/30",9.89,9.94,9.75,9.71,33499772,329580512),
+    new CandleData("2009/10/29",9.74,9.9,9.74,9.67,38686620,377975296),
+    new CandleData("2009/10/28",9.93,10,9.81,9.65,40622532,398031104),
+    new CandleData("2009/10/27",9.91,10.12,9.98,9.9,71541648,716665344),
+    new CandleData("2009/10/26",9.85,10.01,9.91,9.83,45740688,454080640),
+    new CandleData("2009/10/23",9.9,10.01,9.88,9.8,64896168,644487744),
+    new CandleData("2009/10/22",9.9,9.98,9.87,9.78,35008916,345531328),
+    new CandleData("2009/10/21",10.03,10.03,9.9,9.87,41143236,408402816),
+    new CandleData("2009/10/20",10.06,10.15,10.04,9.98,59450992,596471360),
+    new CandleData("2009/10/19",9.95,10,9.98,9.82,42099040,418823584),
+    new CandleData("2009/10/16",9.73,10.04,9.95,9.73,73770440,730984960),
+    new CandleData("2009/10/15",9.77,9.85,9.73,9.69,41915880,409114496),
+    new CandleData("2009/10/14",9.57,9.82,9.76,9.51,58493528,568125120),
+    new CandleData("2009/10/13",9.44,9.55,9.53,9.42,25215508,239339488),
+    new CandleData("2009/10/12",9.55,9.65,9.44,9.42,28628932,272612704),
+    new CandleData("2009/10/09",9.4,9.58,9.57,9.4,30725796,291903872),
     ];
-    var option = CandleChartOption.newInstance("canvas",10,280,350,250, data);
+    
+    var canvas = document.querySelector("canvas");
+    canvas.width = document.documentElement.clientWidth * window.devicePixelRatio;
+    canvas.height = Math.round( document.documentElement.clientHeight * window.devicePixelRatio * 0.5 );
+    var margin = 0.02;
+    var height = canvas.height * ( 1 - margin * 2);
+    var width = canvas.width * (1 - margin * 2);
+    var offsetX = canvas.width * margin ;
+    var offsetY = canvas.height * margin + height;
+    var option = CandleChartOption.newInstance("canvas",offsetX, offsetY, width, height, data);
     var chart = CandelChart.newInstance(option);
-    var pointList = [new Point(100,200),new Point(100,150)]
-    //chart.drawLine(10,200, pointList, 'rgb(255,0,0)', 100);
-    //chart.drawRect(100,10,100,50,'rgb(255,0,0)', 4);
-    //chart.drawFillRect(210,10,100,50,'rgb(0,255,0)', 10);
-    chart.drawX('rgb(0,0,0)', 1);
-    chart.drawY('rgb(0,0,0)', 1);
-    chart.drawYGrid('rgb(38,56,60)', 1, 5, ["1","2","3","4","5"]);
-    chart.drawXGrid('rgb(38,56,60)', 1, 5);
-    chart.drawAllCandle();
+    chart.drawMutilCandles(s);    
+    return chart;
 }
+var c = init();
+//1
+    console.log(document.documentElement.clientWidth);
+    console.log(document.documentElement.clientHeight);
+//2    
+    console.log(screen.availWidth);
+    console.log(screen.availHeight);
+//3    
+    console.log(screen.width);
+    console.log(screen.height);
+//4    
+    console.log(window.innerWidth);
+    console.log(window.innerHeight);
+function next(){
+    
+    s+=1;
+    c.drawMutilCandles(s);
+    setTimeout(next,1000);
+}
+
 
 
 
