@@ -74,7 +74,7 @@ var Chart = {
             ctx.save();
             
             if(color) ctx.strokeStyle = color;
-            if(size) ctx.lineWidth = size;
+            if(size) ctx.lineWidth = size * window.devicePixelRatio;
             if(lineDash) ctx.setLineDash(lineDash);
             
             ctx.beginPath();
@@ -94,7 +94,7 @@ var Chart = {
             ctx.save();
             
             if(lineColor) ctx.strokeStyle = lineColor;
-            if(lineSize) ctx.lineWidth = lineSize;
+            if(lineSize) ctx.lineWidth = lineSize * window.devicePixelRatio;
             
             ctx.strokeRect(topX, topY, width, height);            
             
@@ -151,7 +151,8 @@ var Chart = {
                 var p = new Point(chart.offsetX + chart.width, y);                
                 chart.drawLine(chart.offsetX, y, [p], color, size, lineDash); 
                 if(textList){
-                    chart.drawText(textList[i], chart.offsetX, y, "rgb(255,0,0)", "20px serif");
+                    var font_size = 10 * window.devicePixelRatio;
+                    chart.drawText(textList[i], chart.offsetX, y, "rgb(255,0,0)", font_size+"px serif");
                 }
             }
         };
@@ -218,7 +219,7 @@ var CandelChart = {
             if(yo > yc){//坐标大的，价格则是低的
                 y1 = yc;
                 y2 = yo;
-                color = "rgb(255,0,0)";
+                color = "rgb(204,0,0)";
                 cc.drawRect(x1, y1, x2 - x1, y2 - y1, color);
             }else{
                 y1 = yo;
@@ -226,11 +227,11 @@ var CandelChart = {
                 color = "rgb(0,102,0)";
                 var height = y2 - y1;
                 if(height == 0){
-                    height = 1;
+                    height = 1 * window.devicePixelRatio;
                 }
                 var width = x2 - x1;
                 if(width == 0 ){
-                    width = 1;
+                    width = 1 * window.devicePixelRatio;
                 }
                 cc.drawFillRect(x1, y1, width, height, color);
             }
@@ -259,6 +260,9 @@ var CandelChart = {
                     cc.minPrice = data[i].low;
                 }
             }
+            if(cc.maxPrice == cc.minPrice){
+                cc.maxPrice = cc.maxPrice * ( 1 + 0.1 );
+            }
         }
         //num of draw candles from start index in cc.candleDataList
         cc.drawMutilCandles = function(start){
@@ -269,8 +273,8 @@ var CandelChart = {
             cc.getMinMaxPrice(start, cc.curCandleCount);
             
             cc.clearCanvas();
-            cc.drawX('rgb(0,0,0)', 1);
-            cc.drawY('rgb(0,0,0)', 1);
+            //cc.drawX('rgb(0,0,0)', 1);
+            //cc.drawY('rgb(0,0,0)', 1);
             for(var i = start; i < data.length && i < start + cc.curCandleCount; i++ ){
                 cc.drawCandle(i, start);
             }
@@ -350,35 +354,26 @@ function init(){
     new CandleData("2009/10/14",9.57,9.82,9.76,9.51,58493528,568125120),
     new CandleData("2009/10/13",9.44,9.55,9.53,9.42,25215508,239339488),
     new CandleData("2009/10/12",9.55,9.65,9.44,9.42,28628932,272612704),
-    new CandleData("2009/10/09",9.4,9.58,9.57,9.4,30725796,291903872),
     ];
     
     var canvas = document.querySelector("canvas");
     canvas.width = document.documentElement.clientWidth * window.devicePixelRatio;
     canvas.height = Math.round( document.documentElement.clientHeight * window.devicePixelRatio * 0.5 );
-    var margin = 0.02;
-    var height = canvas.height * ( 1 - margin * 2);
-    var width = canvas.width * (1 - margin * 2);
-    var offsetX = canvas.width * margin ;
-    var offsetY = canvas.height * margin + height;
+    var marginTop = 0.03; //precent
+    var marginBottom = 0.03;
+    var marginLeft = 0.02;//precent
+    var marginRight = 0.02;
+    var height = canvas.height * ( 1 - marginTop - marginBottom);
+    var width = canvas.width * (1 - marginLeft - marginRight);
+    var offsetX = canvas.width * marginLeft ;
+    var offsetY = canvas.height * marginTop + height;
     var option = CandleChartOption.newInstance("canvas",offsetX, offsetY, width, height, data);
     var chart = CandelChart.newInstance(option);
     chart.drawMutilCandles(s);    
     return chart;
 }
 var c = init();
-//1
-    console.log(document.documentElement.clientWidth);
-    console.log(document.documentElement.clientHeight);
-//2    
-    console.log(screen.availWidth);
-    console.log(screen.availHeight);
-//3    
-    console.log(screen.width);
-    console.log(screen.height);
-//4    
-    console.log(window.innerWidth);
-    console.log(window.innerHeight);
+
 function next(){
     
     s+=1;
