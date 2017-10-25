@@ -111,7 +111,7 @@ var Chart = {
             ctx.restore();
         };
         
-        chart.drawText = function(text, topX, topY, textColor, textFont){
+        chart.drawText = function(text, topX, topY, textColor, textFont, textBaseline){
             var ctx = chart.getCanvasCtx();
             ctx.save();
             
@@ -121,8 +121,8 @@ var Chart = {
             if(textFont){
                 ctx.font = textFont;
             }
-            textAlign = "right";
-            ctx.textBaseline = "alphabetic";
+            //textAlign = "start";
+            if(textBaseline) ctx.textBaseline = textBaseline;
             ctx.fillText(text, topX, topY);            
             
             ctx.restore();
@@ -143,27 +143,37 @@ var Chart = {
             chart.drawLine(chart.offsetX, chart.offsetY, [p], color, size)
         };
         
-        chart.drawYGrid = function(num, textList, color, size){
+        chart.drawYGrid = function(num, color, size, textList){
             var step = Math.round( chart.height / num );
-            var lineDash = [2,2];
+            var lineDash = [1,2];
             for(var i = 0; i <= num; i++){
                 var y = chart.offsetY - step * i;
                 var p = new Point(chart.offsetX + chart.width, y);                
                 chart.drawLine(chart.offsetX, y, [p], color, size, lineDash); 
                 if(textList){
+                    var textBaseline  = "alphabetic";
                     var font_size = 10 * window.devicePixelRatio;
-                    chart.drawText(textList[i], chart.offsetX, y, "rgb(255,0,0)", font_size+"px serif");
+                    if(i == 0 ) {
+                        textBaseline = "ideographic";
+                    }
+                    else if(i == num) {
+                        textBaseline = "top";
+                    }
+                    chart.drawText(textList[i], chart.offsetX, y, "rgb(0,0,0)", font_size+"px serif", textBaseline);
                 }
             }
         };
         
-        chart.drawXGrid = function(color, size, num, textList){
+        chart.drawXGrid = function(num, color, size, textList){
             var step = Math.round( chart.width / num );
-            var lineDash = [2,2];
+            var lineDash = [1,2];
             for(var i = 0; i <= num; i++){
                 var x = chart.offsetX + step * i;
                 var p = new Point(x, chart.offsetY - chart.height);
                 chart.drawLine(x, chart.offsetY, [p], color, size, lineDash);
+                if(textList){
+                    //todo: 画x坐文字
+                }
             }
         };
         
@@ -241,9 +251,9 @@ var CandelChart = {
             if(yl > y2){
                 cc.drawLine(x, yl, [new Point(x, y2)], color);
             }
-        };
+        };        
         
-        cc.yGridNum = 5;
+        cc.maxIndex = cc.minIndex = -1;
         cc.getMinMaxPrice = function(start, num){
             if(start != 0 && start + num >= data.length){
                 cc.minPrice = 0;
@@ -255,15 +265,23 @@ var CandelChart = {
             for(var i = start; i < data.length & i < start + num; i++ ){
                 if(data[i].high > cc.maxPrice){
                     cc.maxPrice = data[i].high;
+                    cc.maxIndex = i;
                 }
                 if(data[i].low < cc.minPrice){
                     cc.minPrice = data[i].low;
+                    cc.minIndex = i;
                 }
             }
             if(cc.maxPrice == cc.minPrice){
                 cc.maxPrice = cc.maxPrice * ( 1 + 0.1 );
             }
         }
+        cc.drawMaxMinPrice = function(){
+            
+        }
+        
+        cc.yGridNum = 5;
+        cc.xGridNum = 1;
         //num of draw candles from start index in cc.candleDataList
         cc.drawMutilCandles = function(start){
             start = start || 0;
@@ -283,12 +301,14 @@ var CandelChart = {
             var priceLen = cc.maxPrice - cc.minPrice;
             var min = cc.minPrice - priceLen * cc.marginBottom;
             var max = cc.maxPrice + priceLen * cc.marginTop;
-            var step = (max - min) / cc.yGridNum ;
+            var step = (max - min) / cc.yGridNum;
             for(var i = 0;i <= cc.yGridNum; i++){
                 var n = Math.round((min + step * i)*100) / 100;
-                textArr.push( n.toString());
+                textArr.push( n.toFixed(2) .toString());
             }
-            cc.drawYGrid(cc.yGridNum, textArr, 'rgb(204,204,204)');            
+            var gridColor = 'rgb(153,153,153)';
+            cc.drawYGrid(cc.yGridNum, gridColor, 1, textArr );
+            cc.drawXGrid(cc.xGridNum, gridColor, 1);
         }
         
         return cc;
