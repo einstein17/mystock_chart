@@ -143,23 +143,23 @@ var Chart = {
             chart.drawLine(chart.offsetX, chart.offsetY, [p], color, size)
         };
         
-        chart.drawYGrid = function(num, color, size, textList){
+        chart.drawYGrid = function(num, color, size, textList, fontSize){
             var step = Math.round( chart.height / num );
             var lineDash = [1,2];
+            fontSize = fontSize || 10 * window.devicePixelRatio;
             for(var i = 0; i <= num; i++){
                 var y = chart.offsetY - step * i;
                 var p = new Point(chart.offsetX + chart.width, y);                
                 chart.drawLine(chart.offsetX, y, [p], color, size, lineDash); 
                 if(textList){
                     var textBaseline  = "alphabetic";
-                    var font_size = 10 * window.devicePixelRatio;
                     if(i == 0 ) {
                         textBaseline = "ideographic";
                     }
                     else if(i == num) {
                         textBaseline = "top";
                     }
-                    chart.drawText(textList[i], chart.offsetX, y, "rgb(0,0,0)", font_size+"px serif", textBaseline);
+                    chart.drawText(textList[i], chart.offsetX, y, "rgb(0,0,0)", fontSize + "px sans-serif", textBaseline);
                 }
             }
         };
@@ -192,13 +192,15 @@ var CandelChart = {
             var t2 = Date.parse(new Date(b.day));
             return t1 - t2;
         });
-                
-        cc.marginTop = 0.02;/* margin top and margin botton precent*/
-        cc.marginBottom = 0.02;
-        cc.marginLeft = 0.01;
-        cc.marginRight = 0.01;
-        cc.dataHeight = cc.height * (1 - cc.marginTop - cc.marginBottom);  //显示数据图的高度
-        cc.dataWidth = cc.width * (1 - cc.marginLeft - cc.marginRight);    //显示数据图的宽
+        
+        cc.fontSize = 10 * window.devicePixelRatio; //px, 用于最大小值和坐标
+        //margin between chart and max,min price
+        cc.marginTop = Math.max(cc.height * 0.04, cc.fontSize);
+        cc.marginBottom = Math.max(cc.height * 0.04, cc.fontSize);
+        cc.marginLeft = Math.max(cc.height * 0.01, cc.fontSize);
+        cc.marginRight = Math.max(cc.height * 0.01, cc.fontSize);
+        cc.dataHeight = cc.height - cc.marginTop - cc.marginBottom;  //显示数据图的高度
+        cc.dataWidth = cc.width - cc.marginLeft - cc.marginRight;    //显示数据图的宽
         
         cc.calcYFromPrice = function(price){ //根据价格计算Y坐标
             var pLen = cc.maxPrice - cc.minPrice;
@@ -206,18 +208,19 @@ var CandelChart = {
                 pLen = 1;
             }
             
-            var ret = Math.round( cc.offsetY - cc.height * cc.marginBottom - (price - cc.minPrice) * cc.dataHeight / pLen  );
+            var ret = Math.round( cc.offsetY - cc.marginBottom - (price - cc.minPrice) * cc.dataHeight / pLen  );
             return ret;
         };
+        
         cc.maxCandleCount = 80;  //最大画的蜡烛图个数
         cc.minCandleCount = 20;  //最小画的蜡烛图个数
-        cc.curCandleCount = 50;  //当前画的蜡烛图个数
+        cc.curCandleCount = 60;  //当前画的蜡烛图个数
         cc.candleWidth = cc.dataWidth / cc.curCandleCount;
+        cc.candleMargin = 1 * window.devicePixelRatio;//边距
         cc.drawCandle = function(i, start){
-            start = start || 0;
-            var margin = 1 * window.devicePixelRatio;//边距
-            var x1 = Math.round(cc.offsetX + cc.width * cc.marginLeft + (i - start) * cc.candleWidth + margin);
-            var x2 = Math.round(cc.offsetX + cc.width * cc.marginLeft + (i - start + 1) * cc.candleWidth - margin);
+            start = start || 0;            
+            var x1 = Math.round(cc.offsetX + cc.marginLeft + (i - start) * cc.candleWidth + cc.candleMargin);
+            var x2 = Math.round(cc.offsetX + cc.marginLeft + (i + 1 - start) * cc.candleWidth - cc.candleMargin);
             var x = Math.round( (x1 + x2) / 2);
             var candlePrice = data[i];
             var y1 = y2 = 0;
@@ -229,7 +232,7 @@ var CandelChart = {
             if(yo > yc){//坐标大的，价格则是低的
                 y1 = yc;
                 y2 = yo;
-                color = "rgb(204,0,0)";
+                color = "rgb(255,0,0)";
                 cc.drawRect(x1, y1, x2 - x1, y2 - y1, color);
             }else{
                 y1 = yo;
@@ -276,7 +279,37 @@ var CandelChart = {
                 cc.maxPrice = cc.maxPrice * ( 1 + 0.1 );
             }
         }
-        cc.drawMaxMinPrice = function(){
+        cc.drawMaxMinPrice = function(start){
+            var length = cc.fontSize * 6 / 2;
+            var marginToCandle = 4;
+            if(cc.maxIndex >= 0){
+                var x = Math.round(cc.offsetX + cc.marginLeft + (cc.maxIndex - start) * cc.candleWidth + cc.candleWidth / 2);
+                var y = cc.calcYFromPrice(cc.maxPrice);
+                var end_x = 0;
+                if(x > cc.offsetX + cc.width / 2 ){  //on the right,then draw to left
+                    x = x - marginToCandle;
+                    end_x = x - length;
+                }else{
+                    x = x + marginToCandle;
+                    end_x = x + length;                    
+                }
+                cc.drawLine(x, y, [new Point(end_x, y)]);
+                cc.drawText(cc.maxPrice.toFixed(2).toString(), end_x, y, 'rgb(0,0,0)', cc.fontSize + "px sans-serif", "bottom");
+            }
+            if(cc.minIndex >= 0){
+                var x = Math.round(cc.offsetX + cc.marginLeft + (cc.minIndex - start) * cc.candleWidth + cc.candleWidth / 2);
+                var y = cc.calcYFromPrice(cc.minPrice);
+                var end_x = 0;
+                if(x > cc.offsetX + cc.width / 2 ){  //on the right,then draw to left
+                    x = x - marginToCandle;
+                    end_x = x - length;
+                }else{
+                    x = x + marginToCandle;
+                    end_x = x + length;                    
+                }
+                cc.drawLine(x, y, [new Point(end_x, y)]);
+                cc.drawText(cc.minPrice.toFixed(2).toString(), end_x, y, 'rgb(0,0,0)', cc.fontSize + "px sans-serif", "top");
+            } 
             
         }
         
@@ -299,16 +332,17 @@ var CandelChart = {
             
             var textArr = [];
             var priceLen = cc.maxPrice - cc.minPrice;
-            var min = cc.minPrice - priceLen * cc.marginBottom;
-            var max = cc.maxPrice + priceLen * cc.marginTop;
+            var min = cc.minPrice - priceLen * cc.marginBottom / cc.dataHeight;
+            var max = cc.maxPrice + priceLen * cc.marginTop / cc.dataHeight;
             var step = (max - min) / cc.yGridNum;
             for(var i = 0;i <= cc.yGridNum; i++){
                 var n = Math.round((min + step * i)*100) / 100;
-                textArr.push( n.toFixed(2) .toString());
+                textArr.push( n.toFixed(2).toString());
             }
             var gridColor = 'rgb(153,153,153)';
             cc.drawYGrid(cc.yGridNum, gridColor, 1, textArr );
             cc.drawXGrid(cc.xGridNum, gridColor, 1);
+            cc.drawMaxMinPrice(start);
         }
         
         return cc;
@@ -374,11 +408,72 @@ function init(){
     new CandleData("2009/10/14",9.57,9.82,9.76,9.51,58493528,568125120),
     new CandleData("2009/10/13",9.44,9.55,9.53,9.42,25215508,239339488),
     new CandleData("2009/10/12",9.55,9.65,9.44,9.42,28628932,272612704),
+    new CandleData("2009/09/30",9.37,9.39,9.27,9.2,29413284,272985856),
+    new CandleData("2009/09/29",9.04,9.4,9.39,9.03,69586232,643621632),
+    new CandleData("2009/09/28",9.4,9.45,9.03,8.99,53225268,489899232),
+    new CandleData("2009/09/25",9.57,9.68,9.4,9.38,43247856,409570848),
+    new CandleData("2009/09/24",9.6,9.61,9.57,9.43,49189844,467949376),
+    new CandleData("2009/09/23",9.55,9.77,9.58,9.51,70093928,675661440),
+    new CandleData("2009/09/22",9.72,9.95,9.54,9.53,57122696,555674880),
+    new CandleData("2009/09/21",9.71,9.81,9.76,9.53,49564880,478450048),
+    new CandleData("2009/09/18",10.18,10.24,9.8,9.7,67409360,676858944),
+    new CandleData("2009/09/17",10.04,10.19,10.16,9.98,60782476,614341184),
+    new CandleData("2009/09/16",10.22,10.25,10.01,9.9,58594920,587899136),
+    new CandleData("2009/09/15",10.31,10.34,10.22,10.16,52065944,532811328),
+    new CandleData("2009/09/14",10.13,10.36,10.29,10.12,63250648,646231872),
+    new CandleData("2009/09/11",10.02,10.25,10.09,10,49389032,500346912),
+    new CandleData("2009/09/10",10,10.25,10.07,9.91,47464224,480448352),
+    new CandleData("2009/09/09",10.09,10.13,10,9.85,47876732,477294368),
+    new CandleData("2009/09/08",9.85,10.12,10.09,9.81,39810200,397435072),
+    new CandleData("2009/09/07",9.96,10.09,9.92,9.86,37782344,377556864),
+    new CandleData("2009/09/04",9.98,10.05,9.92,9.76,45724704,452505568),
+    new CandleData("2009/09/03",9.57,10,9.98,9.57,70739216,697182912),
+    new CandleData("2009/09/02",9.43,9.68,9.59,9.35,29716976,284198528),
+    new CandleData("2009/09/01",9.4,9.77,9.47,9.31,38369828,365568512),
+    new CandleData("2009/08/31",10.15,10.15,9.44,9.41,55581852,542153984),
+    new CandleData("2009/08/28",10.5,10.62,10.3,10.21,44357208,461268224),
+    new CandleData("2009/08/27",10.37,10.65,10.55,10.35,42116728,442932160),
+    new CandleData("2009/08/26",10.13,10.55,10.44,10.13,37074928,385331712),
+    new CandleData("2009/08/25",10.38,10.54,10.22,10,51728008,529638976),
+    new CandleData("2009/08/24",10.58,10.59,10.44,10.31,38417272,400983168),
+    new CandleData("2009/08/21",10.35,10.55,10.47,10.28,42854928,446974976),
+    new CandleData("2009/08/20",10.04,10.44,10.39,10.04,46784432,480201280),
+    new CandleData("2009/08/19",10.66,10.67,10.02,9.93,54310920,561811520),
+    new CandleData("2009/08/18",10.39,10.77,10.66,10.33,53672612,569924544),
+    new CandleData("2009/08/17",10.7,10.93,10.44,10.26,89475600,939773440),
+    new CandleData("2009/08/14",11.1,11.12,10.97,10.6,78622672,852711424),
+    new CandleData("2009/08/13",11.21,11.31,11.09,10.88,87473440,966890368),
+    new CandleData("2009/08/12",11.99,12,11.23,11.13,77745296,897920512),
+    new CandleData("2009/08/11",12.35,12.41,12,11.85,57663080,696928768),
+    new CandleData("2009/08/10",11.9,12.37,12.34,11.72,96570160,1158177024),
+    new CandleData("2009/08/07",12.37,12.54,11.72,11.65,106142560,1276213760),
+    new CandleData("2009/08/06",12.58,12.9,12.41,12.19,121844888,1526963968),
+    new CandleData("2009/08/05",11.9,13.15,12.74,11.73,258223312,3269657600),
+    new CandleData("2009/08/04",11.51,11.98,11.95,11.2,143924640,1662849792),
+    new CandleData("2009/08/03",11.28,11.54,11.33,11.22,107518136,1221102720),
+    new CandleData("2009/07/31",10.94,11.3,11.28,10.85,109227440,1216086656),
+    new CandleData("2009/07/30",10.72,11.1,10.88,10.7,110414880,1203447168),
+    new CandleData("2009/07/29",11.25,11.37,10.75,10.25,132373519,1455367742),
+    new CandleData("2009/07/28",11.35,11.44,11.27,11.15,121602176,1368536064),
+    new CandleData("2009/07/27",11.33,11.45,11.42,11.18,97086112,1098887168),
+    new CandleData("2009/07/24",11.67,11.7,11.31,11.01,109669624,1243372672),
+    new CandleData("2009/07/23",11.66,11.73,11.58,11.45,74154416,856901824),
+    new CandleData("2009/07/22",11.38,11.83,11.65,11.38,117742616,1370093696),
+    new CandleData("2009/07/21",11.25,11.65,11.44,11.24,150246144,1724063616),
+    new CandleData("2009/07/20",11.2,11.52,11.23,11.18,130034224,1473484928),
+    new CandleData("2009/07/17",10.85,11.07,11.05,10.7,99858448,1090235520),
+    new CandleData("2009/07/16",10.99,11.1,10.77,10.76,119130232,1304322944),
+    new CandleData("2009/07/15",10.62,11.04,10.96,10.6,175533600,1911720192),
+    new CandleData("2009/07/14",10.33,10.68,10.64,10.29,148826400,1564979840),
+    new CandleData("2009/07/13",10.37,10.52,10.3,10.25,78847312,818686080),
+    new CandleData("2009/07/10",10.37,10.58,10.41,10.3,106089936,1106854784),
+
     ];
     
     var canvas = document.querySelector("canvas");
     canvas.width = document.documentElement.clientWidth * window.devicePixelRatio;
     canvas.height = Math.round( document.documentElement.clientHeight * window.devicePixelRatio * 0.5 );
+    //margin between chart and canvas
     var marginTop = 0.03; //precent
     var marginBottom = 0.03;
     var marginLeft = 0.02;//precent
