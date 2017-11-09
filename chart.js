@@ -29,9 +29,9 @@ var CandleChartOption = {
 * close is the close price of the day
 * volume is the trading volume of the day
 * amount is the trading amount of the day
-* 
+* ma_list = {"ma5":10,"ma10":20}
 */
-CandleData = function( day, open, high, close, low, volume, amount, exchange){
+CandleData = function( day, open, high, close, low, volume, amount, exchange, ma5, ma10, ma20, ma30, ma60){
     this.high = high;
     this.low = low;
     this.open = open;
@@ -40,6 +40,11 @@ CandleData = function( day, open, high, close, low, volume, amount, exchange){
     this.amount = amount;
     this.exchange = exchange;
     this.day = day;
+    this.ma5 =  ma5;
+    this.ma10 = ma10;
+    this.ma20 = ma20;
+    this.ma30 = ma30;
+    this.ma60 = ma60;
 };
 
 var Chart = {
@@ -159,7 +164,7 @@ var Chart = {
                     else if(i == num) {
                         textBaseline = "top";
                     }
-                    chart.drawText(textList[i], chart.offsetX, y, "rgb(0,0,0)", fontSize + "px sans-serif", textBaseline);
+                    chart.drawText(textList[i], chart.offsetX, y, "rgb(0,0,0)", fontSize + "px Arial", textBaseline);
                 }
             }
         };
@@ -181,9 +186,8 @@ var Chart = {
         return chart;
     }
 };
-
  
-var CandelChart = {
+var CandleChart = {
     newInstance: function(option){
         var cc = Chart.newInstance(option);
         var data = option.candleDataList; //蜡烛图数据，可以多于当前画的个数
@@ -197,8 +201,8 @@ var CandelChart = {
         //margin between chart and max,min price
         cc.marginTop = Math.max(cc.height * 0.04, cc.fontSize);
         cc.marginBottom = Math.max(cc.height * 0.04, cc.fontSize);
-        cc.marginLeft = Math.max(cc.height * 0.01, cc.fontSize);
-        cc.marginRight = Math.max(cc.height * 0.01, cc.fontSize);
+        cc.marginLeft = Math.max(cc.width * 0.00, 2 * window.devicePixelRatio);
+        cc.marginRight = Math.max(cc.width * 0.00, 2 * window.devicePixelRatio);
         cc.dataHeight = cc.height - cc.marginTop - cc.marginBottom;  //显示数据图的高度
         cc.dataWidth = cc.width - cc.marginLeft - cc.marginRight;    //显示数据图的宽
         
@@ -212,15 +216,16 @@ var CandelChart = {
             return ret;
         };
         
-        cc.maxCandleCount = 80;  //最大画的蜡烛图个数
+        cc.maxCandleCount = 100;  //最大画的蜡烛图个数
         cc.minCandleCount = 20;  //最小画的蜡烛图个数
         cc.curCandleCount = 60;  //当前画的蜡烛图个数
         cc.candleWidth = cc.dataWidth / cc.curCandleCount;
-        cc.candleMargin = 1 * window.devicePixelRatio;//边距
+        cc.candleMarginLeft = 1 * window.devicePixelRatio;//边距
+		cc.candleMarginRight = 1 * window.devicePixelRatio;//边距
         cc.drawCandle = function(i, start){
             start = start || 0;            
-            var x1 = Math.round(cc.offsetX + cc.marginLeft + (i - start) * cc.candleWidth + cc.candleMargin);
-            var x2 = Math.round(cc.offsetX + cc.marginLeft + (i + 1 - start) * cc.candleWidth - cc.candleMargin);
+            var x1 = Math.round(cc.offsetX + cc.marginLeft + (i - start) * cc.candleWidth + cc.candleMarginLeft);
+            var x2 = Math.round(cc.offsetX + cc.marginLeft + (i + 1 - start) * cc.candleWidth - cc.candleMarginRight);
             var x = Math.round( (x1 + x2) / 2);
             var candlePrice = data[i];
             var y1 = y2 = 0;
@@ -232,8 +237,8 @@ var CandelChart = {
             if(yo > yc){//坐标大的，价格则是低的
                 y1 = yc;
                 y2 = yo;
-                color = "rgb(255,0,0)";
-                cc.drawRect(x1, y1, x2 - x1, y2 - y1, color);
+                color = "rgb(204,0,0)";
+                cc.drawRect(x1, y1, x2 - x1, y2 - y1, color, 1);
             }else{
                 y1 = yo;
                 y2 = yc;
@@ -249,10 +254,10 @@ var CandelChart = {
                 cc.drawFillRect(x1, y1, width, height, color);
             }
             if(yh < y1){
-                cc.drawLine(x, yh, [new Point(x, y1)], color);
+                cc.drawLine(x, yh, [new Point(x, y1)], color, 1);
             }
             if(yl > y2){
-                cc.drawLine(x, yl, [new Point(x, y2)], color);
+                cc.drawLine(x, yl, [new Point(x, y2)], color, 1);
             }
         };        
         
@@ -278,10 +283,11 @@ var CandelChart = {
             if(cc.maxPrice == cc.minPrice){
                 cc.maxPrice = cc.maxPrice * ( 1 + 0.1 );
             }
-        }
+        };
         cc.drawMaxMinPrice = function(start){
             var length = cc.fontSize * 6 / 2;
             var marginToCandle = 4;
+            var color = "rgb(0,0,0)";
             if(cc.maxIndex >= 0){
                 var x = Math.round(cc.offsetX + cc.marginLeft + (cc.maxIndex - start) * cc.candleWidth + cc.candleWidth / 2);
                 var y = cc.calcYFromPrice(cc.maxPrice);
@@ -293,8 +299,8 @@ var CandelChart = {
                     x = x + marginToCandle;
                     end_x = x + length;                    
                 }
-                cc.drawLine(x, y, [new Point(end_x, y)]);
-                cc.drawText(cc.maxPrice.toFixed(2).toString(), end_x, y, 'rgb(0,0,0)', cc.fontSize + "px sans-serif", "bottom");
+                cc.drawLine(x, y, [new Point(end_x, y)], color, 1);
+                cc.drawText(cc.maxPrice.toFixed(2).toString(), end_x, y, 'rgb(0,0,0)', cc.fontSize + "px Arial", "bottom");
             }
             if(cc.minIndex >= 0){
                 var x = Math.round(cc.offsetX + cc.marginLeft + (cc.minIndex - start) * cc.candleWidth + cc.candleWidth / 2);
@@ -307,11 +313,11 @@ var CandelChart = {
                     x = x + marginToCandle;
                     end_x = x + length;                    
                 }
-                cc.drawLine(x, y, [new Point(end_x, y)]);
-                cc.drawText(cc.minPrice.toFixed(2).toString(), end_x, y, 'rgb(0,0,0)', cc.fontSize + "px sans-serif", "top");
+                cc.drawLine(x, y, [new Point(end_x, y)], color, 1);
+                cc.drawText(cc.minPrice.toFixed(2).toString(), end_x, y, color, cc.fontSize + "px Arial", "top");
             } 
             
-        }
+        };
         
         cc.yGridNum = 5;
         cc.xGridNum = 1;
@@ -343,12 +349,76 @@ var CandelChart = {
             cc.drawYGrid(cc.yGridNum, gridColor, 1, textArr );
             cc.drawXGrid(cc.xGridNum, gridColor, 1);
             cc.drawMaxMinPrice(start);
-        }
+        };
         
         return cc;
     }
 };
 
+var VolChart = {
+    newInstance: function(option){
+        var cc = Chart.newInstance(option);
+        
+        var data = option.candleDataList; //蜡烛图数据，可以多于当前画的个数
+        data.sort(function(a,b){
+            var t1 = Date.parse(new Date(a.day));
+            var t2 = Date.parse(new Date(b.day));
+            return t1 - t2;
+        });
+        
+        cc.fontSize = 10 * window.devicePixelRatio; //px, 用于最大小值和坐标
+        //margin between chart and max,min price
+        cc.marginTop = Math.max(cc.height * 0.04, cc.fontSize);
+        cc.marginBottom = Math.max(cc.height * 0.04, cc.fontSize);
+        cc.marginLeft = Math.max(cc.width * 0.00, 2 * window.devicePixelRatio);
+        cc.marginRight = Math.max(cc.width * 0.00, 2 * window.devicePixelRatio);
+        cc.dataHeight = cc.height - cc.marginTop - cc.marginBottom;  //显示数据图的高度
+        cc.dataWidth = cc.width - cc.marginLeft - cc.marginRight;    //显示数据图的宽
+        
+        
+        cc.getMinMaxVol = function(start, num){
+            if(start != 0 && start + num >= data.length){
+                cc.minVol = 0;
+                cc.maxVol = 1;
+                return;
+            }
+            cc.minVol = 100000000;
+            cc.maxVol = -1;
+            for(var i = start; i < data.length & i < start + num; i++ ){
+                if(data[i].volume > cc.maxVol){
+                    cc.maxVol = data[i].volume;
+                }
+                if(data[i].volume < cc.minVol){
+                    cc.minVol = data[i].volume;
+                }
+            }
+            if(cc.minVol == cc.maxVol){
+                cc.maxVol = cc.maxVol * ( 1 + 0.1 );
+            }
+        };
+        cc.drawVol = function(start){
+            start = start || 0;
+            if(start != 0 && start + cc.curCandleCount >= data.length){
+                return;
+            }            
+            cc.getMinMaxVol(start, cc.curCandleCount);
+            
+            cc.yGridNum = 2;
+            var textArr = [];
+            var volLen = cc.maxVol - cc.minVol;
+            var min = cc.minVol - volLen * cc.marginBottom / cc.dataHeight;
+            var max = cc.maxVol + volLen * cc.marginTop / cc.dataHeight;
+            var step = (max - min) / cc.yGridNum;
+            for(var i = 0;i <= cc.yGridNum; i++){
+                var n = Math.round((min + step * i)*100) / 100;
+                textArr.push( n.toFixed(2).toString());
+            }
+            var gridColor = 'rgb(153,153,153)';
+            cc.drawYGrid(cc.yGridNum, gridColor, 1, textArr );
+        };
+        return cc;
+    }
+};
 var s = 0;
 function init(){
     //day, open, high, close, low, volume, amount, exchange
@@ -476,15 +546,23 @@ function init(){
     //margin between chart and canvas
     var marginTop = 0.03; //precent
     var marginBottom = 0.03;
-    var marginLeft = 0.02;//precent
-    var marginRight = 0.02;
-    var height = canvas.height * ( 1 - marginTop - marginBottom);
-    var width = canvas.width * (1 - marginLeft - marginRight);
-    var offsetX = canvas.width * marginLeft ;
-    var offsetY = canvas.height * marginTop + height;
-    var option = CandleChartOption.newInstance("canvas",offsetX, offsetY, width, height, data);
-    var chart = CandelChart.newInstance(option);
-    chart.drawMutilCandles(s);    
+    var marginLeft = 0.0;//precent
+    var marginRight = 0.00;
+    var volHeightPrecent = 0.25;
+    var kLineheight = Math.round(canvas.height * ( 1 - marginTop - marginBottom - volHeightPrecent));
+    var width = Math.round(canvas.width * (1 - marginLeft - marginRight));
+    var offsetX = Math.round(canvas.width * marginLeft) ;
+    var offsetY = Math.round(canvas.height * marginTop + kLineheight);
+    var option = CandleChartOption.newInstance("canvas",offsetX, offsetY, width, kLineheight, data);
+    
+    var chart = CandleChart.newInstance(option);
+    chart.drawMutilCandles(s);
+
+    var volHeight = canvas.height - kLineheight;
+    offsetY = Math.round(canvas.height * marginTop * 2 + kLineheight + volHeight);
+    var volOption = CandleChartOption.newInstance("canvas",offsetX, offsetY, width, volHeight, data);
+    var volChart = VolChart.newInstance(volOption); 
+    volChart.drawVol();
     return chart;
 }
 var c = init();
